@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace HTML\Sourceopt\Service;
+namespace HTML\Sourceopt\Tests\Unit\Service;
 
+use HTML\Sourceopt\Service\CleanHtmlService;
 use HTML\Sourceopt\Tests\Unit\AbstractUnitTest;
+use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * @internal
- *
- * @coversNothing
  */
+#[CoversNothing]
 class CleanHtmlServiceTest extends AbstractUnitTest
 {
     public function testFormatHtml(): void
     {
-        $this->markTestSkipped();
-
-        $clean = new CleanHtmlService();
+        $cleanService = new CleanHtmlService();
         $config = [
             'enabled' => true,
             'removeComments' => true,
@@ -40,7 +40,41 @@ class CleanHtmlServiceTest extends AbstractUnitTest
     </path>
   </path>
 </svg>';
-        $result = $clean->clean($svg, $config);
-        $this->assertEquals($svg, $result);
+
+        self::assertSame($svg, $cleanService->clean($svg, $config));
+    }
+
+    /**
+     * The doctype used to come from $GLOBALS['TSFE'], it is now passed in.
+     */
+    #[DataProvider('doctypeProvider')]
+    public function testSelfClosingTagsDependOnDoctype(string $doctype, string $expected): void
+    {
+        $cleanService = new CleanHtmlService();
+        $html = '<head><meta name="viewport" content="width=device-width" /></head>';
+
+        self::assertSame($expected, $cleanService->clean($html, ['formatHtml' => 0], $doctype));
+    }
+
+    public static function doctypeProvider(): array
+    {
+        return [
+            'html5 drops the self-closing slash' => [
+                '',
+                '<head><meta name="viewport" content="width=device-width"></head>',
+            ],
+            'xhtml keeps it' => [
+                'xhtml',
+                '<head><meta name="viewport" content="width=device-width" /></head>',
+            ],
+        ];
+    }
+
+    public function testInvalidUtf8IsRejected(): void
+    {
+        $cleanService = new CleanHtmlService();
+
+        $this->expectException(\Exception::class);
+        $cleanService->clean("<head>\xC3\x28</head>");
     }
 }

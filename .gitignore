@@ -1,5 +1,5 @@
 /.idea/
 /.Build/*
 /var/
-/Tests/.phpunit.result.cache
+/Tests/.phpunit.cache/
 /composer.lock
