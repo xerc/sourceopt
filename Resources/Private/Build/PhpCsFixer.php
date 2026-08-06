@@ -18,7 +18,7 @@ return (new PhpCsFixer\Config())
         '@PER-CS2.0:risky' => true,
         '@DoctrineAnnotation' => true,
         '@PSR2' => true,
-        '@PHP81Migration' => true,
+        '@PHP82Migration' => true,
         'array_syntax' => ['syntax' => 'short'],
     ])
     ->setFinder($finder)
