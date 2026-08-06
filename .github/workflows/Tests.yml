@@ -7,14 +7,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        typo3: [12.4, 13.4]
-        php: [8.1, 8.2, 8.3]
-        exclude:
-          - php: "8.1"
-            typo3: "13.4"
+        typo3: [13.4, 14.3]
+        php: [8.2, 8.3, 8.4]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -34,12 +31,12 @@ jobs:
   php-cs-fixer:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: 8.1
+          php-version: 8.2
           tools: composer
 
       - name: Install requirements
@@ -51,12 +48,12 @@ jobs:
   messdetector:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: 8.1
+          php-version: 8.2
           tools: composer
 
       - name: Install requirements
