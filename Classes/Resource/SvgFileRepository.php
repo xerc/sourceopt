@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HTML\Sourceopt\Resource;
 
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -16,8 +17,10 @@ class SvgFileRepository
 {
     /**
      * Retrieves all used SVGs within given storage-array.
+     *
+     * @param int $maxFileSize TypoScript "config.svgstore.fileSize" of the current page
      */
-    public function findAllByStorageUids(array $storageUids): \Traversable
+    public function findAllByStorageUids(array $storageUids, int $maxFileSize): \Traversable
     {
         $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable('sys_file');
 
@@ -36,15 +39,15 @@ class SvgFileRepository
             ->where(
                 $queryBuilder->expr()->in(
                     'sys_file.storage',
-                    $queryBuilder->createNamedParameter($storageUids, \TYPO3\CMS\Core\Database\Connection::PARAM_INT_ARRAY)
+                    $queryBuilder->createNamedParameter($storageUids, Connection::PARAM_INT_ARRAY)
                 ),
                 $queryBuilder->expr()->lt(
                     'sys_file.size',
-                    $queryBuilder->createNamedParameter((int) ($GLOBALS['TSFE']->config['config']['svgstore.']['fileSize'] ?? null), \TYPO3\CMS\Core\Database\Connection::PARAM_INT)
+                    $queryBuilder->createNamedParameter($maxFileSize, Connection::PARAM_INT)
                 ),
                 $queryBuilder->expr()->eq(
                     'sys_file.mime_type',
-                    $queryBuilder->createNamedParameter('image/svg+xml', \TYPO3\CMS\Core\Database\Connection::PARAM_STR)
+                    $queryBuilder->createNamedParameter('image/svg+xml', Connection::PARAM_STR)
                 )
             )
             ->groupBy('sys_file.uid', 'sys_file.storage', 'sys_file.identifier', 'sys_file.sha1')

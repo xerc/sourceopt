@@ -18,12 +18,14 @@ class CleanHtmlMiddleware extends AbstractMiddleware
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $response = $handler->handle($request);
+        $config = $this->getTypoScriptConfig($request);
 
-        if ($this->responseIsAlterable($response) && ($GLOBALS['TSFE']->config['config']['sourceopt.']['enabled'] ?? false)) {
+        if ($this->responseIsAlterable($response) && ($config['sourceopt.']['enabled'] ?? false)) {
             $cleanHtmlService = GeneralUtility::makeInstance(CleanHtmlService::class);
             $processedHtml = $cleanHtmlService->clean(
                 (string) $response->getBody(),
-                (array) $GLOBALS['TSFE']->config['config']['sourceopt.']
+                (array) $config['sourceopt.'],
+                (string) ($config['doctype'] ?? '')
             );
             $response = $response->withBody($this->getStringStream($processedHtml));
         }

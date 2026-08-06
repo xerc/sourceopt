@@ -92,8 +92,10 @@ class CleanHtmlService implements SingletonInterface
 
     /**
      * Clean given HTML with formatter.
+     *
+     * @param string $doctype TypoScript "config.doctype" of the current page
      */
-    public function clean(string $html, array $config = []): string
+    public function clean(string $html, array $config = [], string $doctype = ''): string
     {
         if (!mb_check_encoding($html, 'UTF-8')) {
             throw new \Exception('Invalid UTF-8 detected @ ' . $this->getInvalidUTF8Snipped($html));
@@ -128,8 +130,7 @@ class CleanHtmlService implements SingletonInterface
         }
 
         // cleanup HTML5 self-closing elements
-        if (!isset($GLOBALS['TSFE']->config['config']['doctype'])
-            || 'x' !== substr($GLOBALS['TSFE']->config['config']['doctype'], 0, 1)) {
+        if ('x' !== substr($doctype, 0, 1)) {
             $html = preg_replace(
                 '/<((?:area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)\s[^>]+?)\s*\\\?\/>/',
                 '<$1>',

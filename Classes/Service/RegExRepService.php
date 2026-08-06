@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HTML\Sourceopt\Service;
 
+use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Core\Environment;
 use TYPO3\CMS\Core\SingletonInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -16,17 +17,18 @@ use TYPO3\CMS\Frontend\ContentObject\ContentObjectRenderer;
  */
 class RegExRepService implements SingletonInterface
 {
-    public function process(string $html): string
+    /**
+     * @param array $config TypoScript "config.replacer." of the current page
+     */
+    public function process(string $html, array $config, ServerRequestInterface $request): string
     {
-        $config = $GLOBALS['TSFE']->config['config']['replacer.'];
-
         foreach (['search.', 'replace.'] as $section) {
             if (!isset($config[$section]) || !\is_array($config[$section])) {
                 throw new \Exception('missing entry @ config.replacer.' . $section);
             }
 
             if (preg_match_all('/"([\w\-]+)\.";/', serialize(array_keys($config[$section])), $matches)) {
-                $cObj ??= ($GLOBALS['TSFE']->cObj ?? GeneralUtility::makeInstance(ContentObjectRenderer::class));
+                $cObj ??= $this->createContentObjectRenderer($request);
 
                 foreach ($matches[1] as $key) {
                     $config[$section][$key] = $cObj
@@ -57,5 +59,16 @@ class RegExRepService implements SingletonInterface
         }
 
         return preg_replace($config['search.'], $config['replace.'], $html);
+    }
+
+    /**
+     * The middleware runs outside content rendering, so there is no cObj to reuse.
+     */
+    private function createContentObjectRenderer(ServerRequestInterface $request): ContentObjectRenderer
+    {
+        $cObj = GeneralUtility::makeInstance(ContentObjectRenderer::class);
+        $cObj->setRequest($request);
+
+        return $cObj;
     }
 }
