@@ -2,27 +2,26 @@
 
 declare(strict_types=1);
 
-namespace HTML\Sourceopt\Tests\Unit\Service;
+namespace HTML\Sourceopt\Tests\Unit\Manipulation;
 
 use HTML\Sourceopt\Manipulation\RemoveGenerator;
 use HTML\Sourceopt\Tests\Unit\AbstractUnitTest;
+use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * @internal
- *
- * @coversNothing
  */
+#[CoversNothing]
 class RemoveGeneratorTest extends AbstractUnitTest
 {
-    /**
-     * @dataProvider generatorProvider
-     */
-    public function testRemoveGenerator($before, $after): void
+    #[DataProvider('generatorProvider')]
+    public function testRemoveGenerator(string $before, string $after): void
     {
         $cleanService = new RemoveGenerator();
         $result = $cleanService->manipulate($before);
 
-        $this->assertEquals($after, $result);
+        self::assertSame($after, $result);
     }
 
     public static function generatorProvider(): array

@@ -18,10 +18,11 @@ class SvgStoreMiddleware extends AbstractMiddleware
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $response = $handler->handle($request);
+        $config = $this->getTypoScriptConfig($request);
 
-        if ($this->responseIsAlterable($response) && ($GLOBALS['TSFE']->config['config']['svgstore.']['enabled'] ?? false)) {
+        if ($this->responseIsAlterable($response) && ($config['svgstore.']['enabled'] ?? false)) {
             $svgStoreService = GeneralUtility::makeInstance(SvgStoreService::class);
-            $processedHtml = $svgStoreService->process((string) $response->getBody());
+            $processedHtml = $svgStoreService->process((string) $response->getBody(), $config);
             $response = $response->withBody($this->getStringStream($processedHtml));
         }
 

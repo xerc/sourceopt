@@ -53,38 +53,41 @@ class SvgStoreService implements \TYPO3\CMS\Core\SingletonInterface
      */
     protected array $defs = []; // Fix'd ? https://github.com/chromium/chromium/commit/4f3ebd119d5c8492fa8564d61d8b600a82e4a041
 
-    protected function init()
+    protected function init(array $config)
     {
         static $alreadyLoaded = false;
 
         if ($alreadyLoaded) {
             return;
         }
-        
+
         $this->sitePath = Environment::getPublicPath(); // [^/]$
 
         $this->spritePath = $this->getCache()->get('spritePath') ?: '';
         $this->svgFileArr = $this->getCache()->get('svgFileArr') ?: [];
 
-        if (empty($this->spritePath) && !$this->populateCache()) {
+        if (empty($this->spritePath) && !$this->populateCache($config)) {
             throw new \Exception('could not write file: ' . $this->sitePath . $this->spritePath);
         }
 
         if (!file_exists($this->sitePath . $this->spritePath)) {
             throw new \Exception('file does not exists: ' . $this->sitePath . $this->spritePath);
         }
-        
+
         $alreadyLoaded = true;
     }
 
-    public function process(string $html): string
+    /**
+     * @param array $config TypoScript "config." of the current page
+     */
+    public function process(string $html, array $config): string
     {
-        $this->init();
+        $this->init($config);
         if (empty($this->svgFileArr)) {
             return $html;
         }
 
-        if ($GLOBALS['TSFE']->config['config']['disableAllHeaderCode'] ?? false) {
+        if ($config['disableAllHeaderCode'] ?? false) {
             $dom = ['head' => '', 'body' => $html];
         } elseif (!preg_match('/(?<head>.+?<\/head>)(?<body>.+)/s', $html, $dom)) {
             return $html;
@@ -185,7 +188,7 @@ class SvgStoreService implements \TYPO3\CMS\Core\SingletonInterface
         return ['attr' => implode(' ', $attr), 'hash' => $hash];
     }
 
-    private function populateCache(): bool
+    private function populateCache(array $config): bool
     {
         $storageArr = GeneralUtility::makeInstance(StorageRepository::class)->findByStorageType('Local');
         foreach ($storageArr as $storage) {
@@ -199,7 +202,10 @@ class SvgStoreService implements \TYPO3\CMS\Core\SingletonInterface
         }
         unset($storageArr[0]); // keep!
 
-        $fileArr = GeneralUtility::makeInstance(SvgFileRepository::class)->findAllByStorageUids(array_keys($storageArr));
+        $fileArr = GeneralUtility::makeInstance(SvgFileRepository::class)->findAllByStorageUids(
+            array_keys($storageArr),
+            (int) ($config['svgstore.']['fileSize'] ?? 0)
+        );
         foreach ($fileArr as $file) {
             $file['path'] = '/' . $storageArr[$file['storage']] . $file['identifier']; // ^[/]
             $file['defs'] = $this->addFileToSpriteArr($file['sha1'], $file['path']);
@@ -229,7 +235,7 @@ class SvgStoreService implements \TYPO3\CMS\Core\SingletonInterface
             . '</svg>'
         );
 
-        if ($GLOBALS['TSFE']->config['config']['sourceopt.']['formatHtml'] ?? false) {
+        if ($config['sourceopt.']['formatHtml'] ?? false) {
             $svg = preg_replace('/(?<=>)\s+(?=<)/', '', $svg); // remove emptiness
             $svg = preg_replace('/[\t\v]/', ' ', $svg); // prepare shrinkage
             $svg = preg_replace('/\s{2,}/', ' ', $svg); // shrink whitespace

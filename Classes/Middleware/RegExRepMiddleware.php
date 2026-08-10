@@ -18,10 +18,11 @@ class RegExRepMiddleware extends AbstractMiddleware
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $response = $handler->handle($request);
+        $config = $this->getTypoScriptConfig($request);
 
-        if ($this->responseIsAlterable($response) && ($GLOBALS['TSFE']->config['config']['replacer.'] ?? false)) {
+        if ($this->responseIsAlterable($response) && ($config['replacer.'] ?? false)) {
             $regExRepService = GeneralUtility::makeInstance(RegExRepService::class);
-            $processedHtml = $regExRepService->process((string) $response->getBody());
+            $processedHtml = $regExRepService->process((string) $response->getBody(), (array) $config['replacer.'], $request);
             $response = $response->withBody($this->getStringStream($processedHtml));
         }
 
