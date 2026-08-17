@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace HTML\Sourceopt\Service;
 
 use HTML\Sourceopt\Manipulation\ManipulationInterface;
+use HTML\Sourceopt\Manipulation\ReformatHtml;
 use HTML\Sourceopt\Manipulation\RemoveComments;
 use HTML\Sourceopt\Manipulation\RemoveGenerator;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\Core\Environment;
 use TYPO3\CMS\Core\SingletonInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -15,8 +18,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Service: Clean parsed HTML functionality
  * Based on the extension 'sourceopt'.
  */
-class CleanHtmlService implements SingletonInterface
+class CleanHtmlService implements SingletonInterface, LoggerAwareInterface
 {
+    use LoggerAwareTrait;
+
     /**
      * Enable Debug comment in footer.
      */
@@ -26,6 +31,16 @@ class CleanHtmlService implements SingletonInterface
      * Format Type.
      */
     protected int $formatType = 0;
+
+    /**
+     * Remove the `generator` meta tag.
+     */
+    protected bool $removeGenerator = false;
+
+    /**
+     * Remove HTML comments.
+     */
+    protected bool $removeComments = false;
 
     /**
      * Tab character.
@@ -54,6 +69,14 @@ class CleanHtmlService implements SingletonInterface
     {
         if (isset($config['headerComment']) && !empty($config['headerComment'])) {
             $this->headerComment = $config['headerComment'];
+        }
+
+        if (isset($config['removeGenerator'])) {
+            $this->removeGenerator = (bool) $config['removeGenerator'];
+        }
+
+        if (isset($config['removeComments'])) {
+            $this->removeComments = (bool) $config['removeComments'];
         }
 
         if (isset($config['formatHtml']) && is_numeric($config['formatHtml'])) {
@@ -98,7 +121,15 @@ class CleanHtmlService implements SingletonInterface
     public function clean(string $html, array $config = [], string $doctype = ''): string
     {
         if (!mb_check_encoding($html, 'UTF-8')) {
-            throw new \Exception('Invalid UTF-8 detected @ ' . $this->getInvalidUTF8Snipped($html));
+            $message = 'Invalid UTF-8 detected @ ' . $this->getInvalidUTF8Snipped($html);
+
+            if (Environment::getContext()->isProduction()) {
+                $this->logger?->error($message);
+
+                return $html;
+            }
+
+            throw new \Exception($message);
         }
 
         if (!empty($config)) {
@@ -108,13 +139,27 @@ class CleanHtmlService implements SingletonInterface
         // convert line-breaks to UNIX
         $html = preg_replace("(\r\n|\r)", $this->newline, $html);
 
+        // include configured header comment in HTML content block
+        if (!empty($this->headerComment)) {
+            $html = preg_replace('/^(-->)$/m', "\n\t" . $this->headerComment . "\n$1", $html, 1);
+        }
+
+        // cleanup HTML5 self-closing elements
+        if ('x' !== substr($doctype, 0, 1)) {
+            $html = preg_replace(
+                '/<((?:' . implode('|', ReformatHtml::VOID_ELEMENTS) . ')\s[^>]+?)\s*\\\?\/>/',
+                '<$1>',
+                $html
+            );
+        }
+
         $manipulations = [];
 
-        if (isset($config['removeGenerator']) && (bool) $config['removeGenerator']) {
+        if ($this->removeGenerator) {
             $manipulations['removeGenerator'] = GeneralUtility::makeInstance(RemoveGenerator::class);
         }
 
-        if (isset($config['removeComments']) && (bool) $config['removeComments']) {
+        if ($this->removeComments) {
             $manipulations['removeComments'] = GeneralUtility::makeInstance(RemoveComments::class);
         }
 
@@ -124,23 +169,9 @@ class CleanHtmlService implements SingletonInterface
             $html = $manipulation->manipulate($html, $configuration);
         }
 
-        // include configured header comment in HTML content block
-        if (!empty($this->headerComment)) {
-            $html = preg_replace('/^(-->)$/m', "\n\t" . $this->headerComment . "\n$1", $html, 1);
-        }
-
-        // cleanup HTML5 self-closing elements
-        if ('x' !== substr($doctype, 0, 1)) {
-            $html = preg_replace(
-                '/<((?:area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)\s[^>]+?)\s*\\\?\/>/',
-                '<$1>',
-                $html
-            );
-        }
-
         if ($this->formatType) {
-            $indenter = new \Gajus\Dindent\Indenter(['indentation_character' => $this->tab]);
-            $html = $indenter->indent($html);
+            $html = GeneralUtility::makeInstance(ReformatHtml::class)
+                ->manipulate($html, ['type' => $this->formatType, 'tab' => $this->tab]);
         }
 
         // recover line-breaks

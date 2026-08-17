@@ -77,4 +77,27 @@ class CleanHtmlServiceTest extends AbstractUnitTest
         $this->expectException(\Exception::class);
         $cleanService->clean("<head>\xC3\x28</head>");
     }
+
+    /**
+     * formatHtml levels 2-5 pick a different set of "box" elements that get their
+     * own line; below that threshold, elements like h1/p fold onto the surrounding
+     * line instead (h1/p only become box elements starting at level 3).
+     */
+    #[DataProvider('formatHtmlLevelProvider')]
+    public function testFormatHtmlLevelsControlLineBreakGranularity(int $level, string $expected): void
+    {
+        $cleanService = new CleanHtmlService();
+        $html = '<div><h1>Title</h1><p>Text</p></div>';
+
+        self::assertSame($expected, $cleanService->clean($html, ['formatHtml' => $level]));
+    }
+
+    public static function formatHtmlLevelProvider(): array
+    {
+        return [
+            'level 1: single line' => [1, '<div><h1>Title</h1><p>Text</p></div>'],
+            'level 2: h1/p not yet box elements, still folded' => [2, '<div><h1>Title</h1><p>Text</p></div>'],
+            'level 3: h1/p become box elements, each breaks' => [3, "<div>\n\t<h1>Title</h1>\n\t<p>Text</p>\n</div>"],
+        ];
+    }
 }
